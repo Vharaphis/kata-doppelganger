@@ -1,29 +1,13 @@
-from dataclasses import dataclass
+from unittest.mock import Mock
 
 import pytest
 
 from mail_sender import SendMailRequest, MailSender, SendMailResponse
 from user import User
 
-
-@dataclass
-class SendFullMailResponse:
-    code: int
-    message: str
-    request: SendMailRequest
-
-
-class HttpClient:
-    def __init__(self):
-        self._request = None
-
-    def post(self, url: str, request: SendMailRequest) -> SendFullMailResponse:
-        return SendFullMailResponse(503, request.recipient, request)
-
-
 @pytest.fixture
-def http_client() -> HttpClient:
-    return HttpClient()
+def http_client():
+    return Mock()
 
 
 @pytest.fixture
@@ -31,18 +15,30 @@ def user() -> User:
     return User("User", "user@email.fr")
 
 
-def test_send_v1(http_client: HttpClient, user: User):
+def test_send_v1(http_client, user: User):
     # TODO: write a test that fails due to the bug in MailSender.send_v1
+    BODY = "Message"
+
     mail_sender: MailSender = MailSender(http_client)
+    mail_sender.send_v1(user, BODY)
 
-    res = mail_sender.send_v1(user, "Message")
+    args = http_client.post.call_args.args
 
-    assert res.request.recipient == user.email
-    assert res.request.subject == "New notification"
+    request = args[1]
+    assert request.recipient == user.email
+    assert request.subject == "New notification"
 
 
-def test_send_v2(http_client: HttpClient, user: User):
+def test_send_v2(http_client, user: User):
     # TODO: write a test that fails due to the bug in MailSender.send_v2
-    mail_sender: MailSender = MailSender(http_client)
+    BODY = "Message"
 
-    res = mail_sender.send_v2(user, "Message")
+    http_client.post.return_value = SendMailResponse(503, BODY)
+
+    mail_sender: MailSender = MailSender(http_client)
+    mail_sender.send_v2(user, BODY)
+
+    args = http_client.post.call_args.args
+
+    request = args[1]
+    assert type(request) is SendMailRequest
