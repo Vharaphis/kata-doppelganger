@@ -1,21 +1,10 @@
 from typing import Dict, List
 
 import pytest
+from unittest.mock import Mock
 
 from discount_applier import DiscountApplier
 from user import User
-
-
-class Notifier:
-    def __init__(self):
-        self.sent_messages: Dict[str, str] = {}
-
-    def notify(self, user: User, msg: str):
-        self.sent_messages[user.email] = msg
-
-    @property
-    def messages_count(self):
-        return len(self.sent_messages)
 
 
 @pytest.fixture
@@ -29,8 +18,8 @@ def users() -> List[User]:
 
 
 @pytest.fixture
-def notifier() -> Notifier:
-    return Notifier()
+def notifier():
+    return Mock()
 
 
 def test_apply_v1(users, notifier):
@@ -41,16 +30,22 @@ def test_apply_v1(users, notifier):
     discount_applier = DiscountApplier(notifier)
     discount_applier.apply_v1(DISCOUNT_RATE, users)
 
-    assert notifier.messages_count == len(users)  # Fails because 4 users notified instead of 5
+    assert notifier.notify.call_count == len(users)  # Fails because 4 users notified instead of 5
 
 
 def test_apply_v2(users, notifier):
     # TODO: write a test that fails due to the bug in
     # DiscountApplier.apply_v2
     DISCOUNT_RATE = 0.3
+    sent_messages: Dict[str, str] = {}
+
+    def notify(user: User, msg: str):
+        sent_messages[user.email] = msg
+
+    notifier.notify.side_effect = notify
 
     discount_applier = DiscountApplier(notifier)
     discount_applier.apply_v2(DISCOUNT_RATE, users)
 
-    assert notifier.messages_count == len(users)  # Fails because 1 user notified instead of 5
+    assert len(sent_messages) == len(users)  # Fails because 1 user notified instead of 5
 
